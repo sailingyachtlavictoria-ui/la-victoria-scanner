@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan Item</title>
+</head>
+<body style="font-family:sans-serif;padding:16px;text-align:center">
+  <h2 id="title">Scan Item</h2>
+  <div id="reader" style="width:100%;max-width:360px;margin:0 auto"></div>
+  <p id="status" style="color:#555;margin-top:10px">Point the camera at the item's QR code.</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    // Your Apps Script web app exec URL
+    var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwM12PoEUCpBoKRSOXPL8EFzJmDxM9IlurnJFS8zQ9Odc-GjRSiRTELekie-8SYZhDm/exec";
+
+    var params = new URLSearchParams(window.location.search);
+    var boxId = params.get("boxId") || "";
+    if (boxId) {
+      document.getElementById("title").innerText = "Scan Item \u2192 add to Box " + boxId;
+    }
+
+    var scanning = true;
+
+    function onScanSuccess(decodedText) {
+      if (!scanning) return;
+      scanning = false;
+      document.getElementById("status").innerText = "Scanned. Saving...";
+      html5QrCode.stop().catch(function () {});
+
+      var idMatch = decodedText.match(/[?&]id=([^&]+)/);
+      var itemId = idMatch ? decodeURIComponent(idMatch[1]) : decodedText;
+
+      var form = document.createElement("form");
+      form.method = "POST";
+      form.action = APPS_SCRIPT_URL;
+      // target left as default (top-level navigation of this tab)
+
+      function addField(name, value) {
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      addField("mode", "storage");
+      addField("itemId", itemId);
+      addField("boxId", boxId);
+
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+    function onScanFailure() {}
+
+    var html5QrCode = new Html5Qrcode("reader");
+    html5QrCode
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess,
+        onScanFailure
+      )
+      .catch(function (err) {
+        document.getElementById("status").innerText =
+          "Camera error: " + err + ". Make sure you allowed camera access for this site.";
+      });
+  </script>
+</body>
+</html>
