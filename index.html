@@ -8,7 +8,7 @@
 <body style="font-family:sans-serif;padding:16px;text-align:center">
   <h2 id="title">Scan Item</h2>
   <div id="reader" style="width:100%;max-width:360px;margin:0 auto"></div>
-  <p id="status" style="color:#555;margin-top:10px">Point the camera at the item's QR code.</p>
+  <p id="status" style="color:#555;margin-top:10px">Point the camera at the QR code.</p>
 
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
@@ -16,9 +16,24 @@
     var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBAvvxTgJuywg8EjhNQBDRnXLHM0EKFw5mpL-3PDdy6iwByqZfV98tTLgouENFE9Hr-g/exec";
 
     var params = new URLSearchParams(window.location.search);
-    var boxId = params.get("boxId") || "";
     var qtyAction = params.get("qtyAction") === "remove" ? "remove" : "add";
-    if (boxId) {
+
+    // Two modes:
+    //  - scanFor=item (default): boxId is fixed (from the box page), the
+    //    scan decodes which ITEM's QR was shown. Existing behavior.
+    //  - scanFor=box: itemId and quantity are fixed (from the item page),
+    //    the scan decodes which BOX's QR was shown instead.
+    var scanFor = params.get("scanFor") === "box" ? "box" : "item";
+    var boxId = params.get("boxId") || "";
+    var fixedItemId = params.get("itemId") || "";
+    var fixedQuantity = params.get("quantity") || "";
+
+    if (scanFor === "box") {
+      document.getElementById("title").innerText =
+        "Scan Box → " + (qtyAction === "remove" ? "remove" : "add") +
+        (fixedQuantity ? " " + fixedQuantity : "") + " x " + fixedItemId;
+      document.getElementById("status").innerText = "Point the camera at the box's QR code.";
+    } else if (boxId) {
       document.getElementById("title").innerText =
         "Scan Item → " + (qtyAction === "remove" ? "remove from" : "add to") + " Box " + boxId;
     }
@@ -44,8 +59,16 @@
       document.getElementById("status").innerText = "Scanned. Saving...";
       html5QrCode.stop().catch(function () {});
 
-      var idMatch = decodedText.match(/[?&]id=([^&]+)/);
-      var itemId = idMatch ? decodeURIComponent(idMatch[1]) : decodedText;
+      var itemId, targetBoxId;
+      if (scanFor === "box") {
+        var boxMatch = decodedText.match(/[?&]boxid=([^&]+)/i);
+        targetBoxId = boxMatch ? decodeURIComponent(boxMatch[1]) : decodedText;
+        itemId = fixedItemId;
+      } else {
+        var idMatch = decodedText.match(/[?&]id=([^&]+)/);
+        itemId = idMatch ? decodeURIComponent(idMatch[1]) : decodedText;
+        targetBoxId = boxId;
+      }
 
       var form = document.createElement("form");
       form.method = "POST";
@@ -61,8 +84,9 @@
       }
       addField("mode", "storage");
       addField("itemId", itemId);
-      addField("boxId", boxId);
+      addField("boxId", targetBoxId);
       addField("qtyAction", qtyAction);
+      if (scanFor === "box" && fixedQuantity) addField("quantity", fixedQuantity);
       addField("source", "scanbox");
       addField("pin", pin);
 
