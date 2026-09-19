@@ -23,6 +23,19 @@
         "Scan Item → " + (qtyAction === "remove" ? "remove from" : "add to") + " Box " + boxId;
     }
 
+    // Ask for the PIN once per device, then remember it. The script
+    // itself validates the PIN before making any change. A link back
+    // here with &resetpin=1 (e.g. from an "invalid PIN" error page)
+    // clears the stored PIN so it gets asked again.
+    if (params.get("resetpin") === "1") {
+      localStorage.removeItem("laVictoriaPin");
+    }
+    var pin = localStorage.getItem("laVictoriaPin") || "";
+    if (!pin) {
+      pin = window.prompt("Enter your PIN:") || "";
+      if (pin) localStorage.setItem("laVictoriaPin", pin);
+    }
+
     var scanning = true;
 
     function onScanSuccess(decodedText) {
@@ -51,6 +64,7 @@
       addField("boxId", boxId);
       addField("qtyAction", qtyAction);
       addField("source", "scanbox");
+      addField("pin", pin);
 
       document.body.appendChild(form);
       form.submit();
